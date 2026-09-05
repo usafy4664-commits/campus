@@ -96,6 +96,20 @@ function logout() {
   render()
 }
 
+/* ---------------- Welcome voice greetings ---------------- */
+const VOICE = {
+  entry: '/static/audio/welcome_entry.mp3',
+  loggedIn: '/static/audio/welcome_loggedin.mp3',
+}
+function playVoice(src) {
+  try {
+    const a = new Audio(src)
+    a.volume = 0.9
+    const p = a.play()
+    if (p && p.catch) p.catch(() => {}) // ignore autoplay rejections silently
+  } catch (e) {}
+}
+
 /* ================================================================ RENDER ROOT */
 function render() {
   const root = document.getElementById('app')
@@ -123,6 +137,7 @@ function maybeShowWelcomeSplash() {
   const enter = () => {
     if (sessionStorage.getItem('sc_entered') === '1') return
     sessionStorage.setItem('sc_entered', '1')
+    playVoice(VOICE.entry)
     s.style.opacity = '0'; s.style.transition = 'opacity .5s'
     setTimeout(() => s.remove(), 500)
   }
@@ -271,6 +286,10 @@ async function doLogin(email, password) {
   go('dashboard', { push: false })
   try { history.replaceState({ route: 'dashboard' }, '', '#dashboard') } catch (e) {}
   if (typeof injectAIAssistant === 'function') injectAIAssistant()
+  // Welcome voice for students only — disabled when signing into admin panel
+  if (res.user && res.user.role !== 'admin') {
+    playVoice(VOICE.loggedIn)
+  }
 }
 
 /* ================================================================ APP SHELL */
