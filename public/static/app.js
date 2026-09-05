@@ -96,10 +96,9 @@ function logout() {
   render()
 }
 
-/* ---------------- Welcome voice greetings ---------------- */
+/* ---------------- Entry welcome voice ---------------- */
 const VOICE = {
   entry: '/static/audio/welcome_entry.mp3',
-  loggedIn: '/static/audio/welcome_loggedin.mp3',
 }
 function playVoice(src) {
   try {
@@ -286,10 +285,6 @@ async function doLogin(email, password) {
   go('dashboard', { push: false })
   try { history.replaceState({ route: 'dashboard' }, '', '#dashboard') } catch (e) {}
   if (typeof injectAIAssistant === 'function') injectAIAssistant()
-  // Welcome voice for students only — disabled when signing into admin panel
-  if (res.user && res.user.role !== 'admin') {
-    playVoice(VOICE.loggedIn)
-  }
 }
 
 /* ================================================================ APP SHELL */
