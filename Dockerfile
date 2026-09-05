@@ -1,6 +1,8 @@
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
+
+ENV CI=true
 
 # Install dependencies
 COPY package*.json ./
@@ -14,7 +16,7 @@ RUN npm run build
 
 # Apply local D1 database schema and seed data
 RUN npx wrangler d1 migrations apply webapp-production --local
-RUN npx wrangler d1 execute webapp-production --local --file=./seed.sql
+RUN npx wrangler d1 execute webapp-production --local --file=./seed.sql --yes
 
 # Railway provides PORT dynamically
 ENV PORT=3000
