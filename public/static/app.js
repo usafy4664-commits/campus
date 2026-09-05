@@ -96,23 +96,6 @@ function logout() {
   render()
 }
 
-/* ---------------- Anime-girl voice greetings ----------------
-   Browsers block audio until the user interacts with the page, so the
-   entry clip is triggered by the "tap to enter" splash. Once the user
-   has interacted, the after-login clip can play on its own. */
-const VOICE = {
-  entry: '/static/audio/welcome_entry.mp3',
-  loggedIn: '/static/audio/welcome_loggedin.mp3',
-}
-function playVoice(src) {
-  try {
-    const a = new Audio(src)
-    a.volume = 0.9
-    const p = a.play()
-    if (p && p.catch) p.catch(() => {}) // ignore autoplay rejections silently
-  } catch (e) {}
-}
-
 /* ================================================================ RENDER ROOT */
 function render() {
   const root = document.getElementById('app')
