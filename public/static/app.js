@@ -120,9 +120,7 @@ function render() {
   root.innerHTML = Shell(); bindShell(); renderRoute()
 }
 
-/* "Tap to enter" welcome splash — shown once per browser session on the
-   login screen. Tapping it satisfies the browser's audio-unlock rule and
-   plays the anime-girl entry greeting. */
+/* "Tap to enter" welcome splash — shown once per browser session on the login screen. */
 function maybeShowWelcomeSplash() {
   if (sessionStorage.getItem('sc_entered') === '1') return
   const s = document.createElement('div')
@@ -136,14 +134,12 @@ function maybeShowWelcomeSplash() {
       <h1 class="text-4xl sm:text-5xl font-extrabold mb-3">Smart Campus</h1>
       <p class="text-white/80 text-lg mb-10 max-w-sm mx-auto">One connected platform for students & administration</p>
       <button id="enter-btn" class="btn btn-white px-10 py-4 text-lg font-extrabold mx-auto">
-        <i class="fa-solid fa-volume-high"></i><span>Tap to enter</span>
+        <i class="fa-solid fa-arrow-right"></i><span>Tap to enter</span>
       </button>
-      <p class="text-white/60 text-sm mt-5"><i class="fa-solid fa-hand-pointer mr-1"></i>Tap anywhere to continue with sound</p>
     </div>`
   const enter = () => {
     if (sessionStorage.getItem('sc_entered') === '1') return
     sessionStorage.setItem('sc_entered', '1')
-    playVoice(VOICE.entry)
     s.style.opacity = '0'; s.style.transition = 'opacity .5s'
     setTimeout(() => s.remove(), 500)
   }
@@ -292,10 +288,6 @@ async function doLogin(email, password) {
   go('dashboard', { push: false })
   try { history.replaceState({ route: 'dashboard' }, '', '#dashboard') } catch (e) {}
   if (typeof injectAIAssistant === 'function') injectAIAssistant()
-  // Welcome voice for students only — disabled when signing into admin panel
-  if (res.user && res.user.role !== 'admin') {
-    playVoice(VOICE.loggedIn)
-  }
 }
 
 /* ================================================================ APP SHELL */
