@@ -1575,34 +1575,52 @@ function injectAIAssistant() {
   if (document.getElementById('ai-widget')) return
   let voiceEnabled = true
   let isSpeaking = false
+  let cachedVoice = null
+  let speechQueue = []
+  let speechTimeout = null
 
   const html = `
   <div id="ai-widget" class="fixed bottom-6 right-6 z-50">
     <!-- Chat Panel -->
-    <div id="ai-panel" class="hidden absolute bottom-20 right-0 w-[380px] max-w-[92vw] h-[520px] max-h-[80vh] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden transition-all origin-bottom-right pop-in">
+    <div id="ai-panel" class="hidden absolute bottom-20 right-0 w-[400px] max-w-[94vw] h-[540px] max-h-[82vh] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden transition-all origin-bottom-right pop-in">
       <div class="hero-gradient text-white p-4 flex items-center justify-between shadow-sm">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-2xl bg-white/20 grid place-items-center text-xl shadow-inner"><i class="fa-solid fa-robot"></i></div>
           <div>
-            <p class="font-extrabold leading-tight text-base">Campus AI</p>
-            <p id="ai-voice-status" class="text-white/80 text-xs flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Voice Enabled</p>
+            <div class="flex items-center gap-2">
+              <p class="font-extrabold leading-tight text-base">Campus AI</p>
+              <div id="ai-speaking-wave" class="hidden flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/25 text-[11px] font-bold cursor-pointer" title="Click to stop speaking">
+                <span class="w-1 h-2.5 bg-emerald-300 rounded-full animate-pulse"></span>
+                <span class="w-1 h-4 bg-emerald-300 rounded-full animate-pulse [animation-delay:150ms]"></span>
+                <span class="w-1 h-2 bg-emerald-300 rounded-full animate-pulse [animation-delay:300ms]"></span>
+                <span class="ml-0.5 text-xs">Speaking</span>
+              </div>
+            </div>
+            <p id="ai-voice-status" class="text-white/80 text-xs flex items-center gap-1.5 mt-0.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Fast Voice Enabled</p>
           </div>
         </div>
         <div class="flex items-center gap-1.5">
-          <button id="ai-voice-toggle" class="w-8 h-8 rounded-full hover:bg-white/20 grid place-items-center text-white/90 hover:text-white transition" title="Toggle Voice Output">
+          <button id="ai-voice-toggle" class="w-8 h-8 rounded-full hover:bg-white/20 grid place-items-center text-white/90 hover:text-white transition" title="Toggle Voice Audio">
             <i class="fa-solid fa-volume-high text-sm"></i>
           </button>
-          <button id="ai-close" class="w-8 h-8 rounded-full hover:bg-white/20 grid place-items-center text-white/90 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+          <button id="ai-close" class="w-8 h-8 rounded-full hover:bg-white/20 grid place-items-center text-white/90 hover:text-white transition" title="Close"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
 
       <!-- Quick Suggestion Chips -->
-      <div class="bg-slate-100/90 px-3 py-2 flex items-center gap-1.5 overflow-x-auto text-[11px] font-semibold text-slate-600 border-b border-slate-200 scrollbar-none">
-        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 transition" data-q="What is my attendance?">📊 Attendance</button>
-        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 transition" data-q="How many assignments are pending?">📝 Assignments</button>
-        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 transition" data-q="Show my marks and CGPA">📈 My Grades</button>
-        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 transition" data-q="Explain database normalization">💡 Normalization</button>
-        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 transition" data-q="What is on my schedule today?">📅 Schedule</button>
+      <div class="bg-slate-100/95 px-3 py-2 flex items-center gap-1.5 overflow-x-auto text-[11px] font-semibold text-slate-600 border-b border-slate-200 scrollbar-none">
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs transition" data-q="What is my attendance?">📊 Attendance</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs transition" data-q="Can I bunk class today?">❓ Bunk Calculator</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs transition" data-q="How many assignments are pending?">📝 Assignments</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs transition" data-q="Show my marks and CGPA">📈 CGPA & Marks</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs transition" data-q="Explain database normalization">💡 Normalization</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs transition" data-q="What is on my schedule today?">📅 Schedule</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs transition" data-q="Where is the Central Library?">🗺️ Library Map</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs transition" data-q="My Wi-Fi is not connecting">🛠️ Wi-Fi Issue</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs transition" data-q="What are the latest notices?">📢 Notices</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs transition" data-q="Emergency contacts and SOS">🚨 SOS Alert</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs transition" data-q="Give me study tips for exam preparation">💡 Study Tips</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 shadow-2xs transition" data-q="Tell me a joke">😄 Joke</button>
       </div>
 
       <!-- Messages Area -->
@@ -1610,18 +1628,19 @@ function injectAIAssistant() {
         <div class="flex items-start gap-2.5 max-w-[88%]">
           <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 grid place-items-center flex-shrink-0 shadow-sm"><i class="fa-solid fa-robot text-xs"></i></div>
           <div class="bg-white border border-slate-200 p-3.5 rounded-2xl rounded-tl-sm shadow-sm text-slate-700 leading-relaxed text-xs">
-            Hi! I am your Smart Campus AI Assistant. You can speak using the microphone or ask me about your <b>attendance</b>, <b>assignments</b>, <b>marks & CGPA</b>, or ask me to <b>explain any academic topic</b>!
+            Hi! I am your <b>Smart Campus AI Voice Assistant</b>. Speak using the microphone or ask about your <b>attendance</b>, <b>bunk limits</b>, <b>assignments</b>, <b>marks & CGPA</b>, or <b>academic explanations</b>!
           </div>
         </div>
       </div>
 
       <!-- Input Bar -->
       <div class="p-3 border-t border-slate-200 bg-white flex items-center gap-2">
-        <button id="ai-voice-btn" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-indigo-100 hover:text-indigo-600 grid place-items-center transition flex-shrink-0 text-slate-600" title="Click to speak">
+        <button id="ai-voice-btn" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-indigo-100 hover:text-indigo-600 grid place-items-center transition flex-shrink-0 text-slate-600 relative" title="Click to speak (fast speech recognition)">
           <i class="fa-solid fa-microphone"></i>
+          <span id="ai-mic-pulse" class="hidden absolute inset-0 rounded-full bg-red-400 animate-ping opacity-75"></span>
         </button>
-        <input type="text" id="ai-input" class="flex-1 bg-slate-100 rounded-full px-4 py-2.5 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition" placeholder="Type a question or click mic...">
-        <button id="ai-send" class="w-10 h-10 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 grid place-items-center transition flex-shrink-0 shadow-md">
+        <input type="text" id="ai-input" class="flex-1 bg-slate-100 rounded-full px-4 py-2.5 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition" placeholder="Ask a question or tap mic to speak...">
+        <button id="ai-send" class="w-10 h-10 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 grid place-items-center transition flex-shrink-0 shadow-md" title="Send message">
           <i class="fa-solid fa-paper-plane text-xs"></i>
         </button>
       </div>
@@ -1639,53 +1658,130 @@ function injectAIAssistant() {
   const input = document.getElementById('ai-input')
   const messages = document.getElementById('ai-messages')
   const voiceBtn = document.getElementById('ai-voice-btn')
+  const micPulse = document.getElementById('ai-mic-pulse')
   const voiceToggleBtn = document.getElementById('ai-voice-toggle')
   const voiceStatus = document.getElementById('ai-voice-status')
+  const speakingWave = document.getElementById('ai-speaking-wave')
 
-  // Natural TTS Voice Selector
-  const getNaturalVoice = () => {
+  // Natural TTS Voice Selector with Instant Caching
+  const loadNaturalVoice = () => {
     if (!window.speechSynthesis) return null
     const voices = window.speechSynthesis.getVoices()
     if (!voices.length) return null
-    // Prefer modern natural English voices
+    // Prefer modern natural English voices (Google US English, Samantha, Jenny, Natural)
     const preferred = voices.find(v => (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Online')) && v.lang.startsWith('en'))
-      || voices.find(v => (v.name.includes('Samantha') || v.name.includes('Zira') || v.name.includes('Jenny') || v.name.includes('David')) && v.lang.startsWith('en'))
-      || voices.find(v => v.lang.startsWith('en-US'))
+      || voices.find(v => (v.name.includes('Samantha') || v.name.includes('Zira') || v.name.includes('Jenny') || v.name.includes('David') || v.name.includes('Ava')) && v.lang.startsWith('en'))
+      || voices.find(v => v.lang === 'en-US')
       || voices.find(v => v.lang.startsWith('en'))
-    return preferred || voices[0]
+    cachedVoice = preferred || voices[0]
+    return cachedVoice
   }
 
-  // Pre-load voices
+  // Pre-load voices immediately
   if (window.speechSynthesis) {
-    window.speechSynthesis.onvoiceschanged = () => getNaturalVoice()
+    loadNaturalVoice()
+    window.speechSynthesis.onvoiceschanged = () => loadNaturalVoice()
   }
 
-  // Speech function with natural cadence and cancellation
-  const speakText = (text) => {
-    if (!voiceEnabled || !window.speechSynthesis) return
-    window.speechSynthesis.cancel()
-    
-    // Clean text for speech: remove markdown bullets, emojis, and special chars
-    const cleanSpeech = text
-      .replace(/[•\*\#\_]/g, '')
+  // Stop any ongoing speech immediately
+  const stopSpeaking = () => {
+    if (speechTimeout) { clearTimeout(speechTimeout); speechTimeout = null }
+    speechQueue = []
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume()
+    }
+    isSpeaking = false
+    if (speakingWave) speakingWave.classList.add('hidden')
+    voiceToggleBtn.innerHTML = voiceEnabled ? '<i class="fa-solid fa-volume-high text-sm"></i>' : '<i class="fa-solid fa-volume-xmark text-sm text-white/50"></i>'
+  }
+
+  // Clean and phoneticize text for natural, prompt speech
+  const sanitizeForSpeech = (text) => {
+    return text
+      .replace(/[•\*\#\_`~>]/g, '')
       .replace(/https?:\/\/\S+/g, 'link')
+      .replace(/\b1NF\b/gi, 'First Normal Form')
+      .replace(/\b2NF\b/gi, 'Second Normal Form')
+      .replace(/\b3NF\b/gi, 'Third Normal Form')
+      .replace(/\bBCNF\b/gi, 'Boyce Codd Normal Form')
+      .replace(/\bACID\b/g, 'A C I D')
+      .replace(/\bCGPA\b/gi, 'C G P A')
+      .replace(/\bGPA\b/gi, 'G P A')
+      .replace(/\bDBMS\b/gi, 'D B M S')
+      .replace(/\bOS\b/g, 'Operating System')
+      .replace(/\bRAM\b/g, 'Ram')
+      .replace(/\bCPU\b/g, 'C P U')
+      .replace(/\bSQL\b/gi, 'S Q L')
+      .replace(/\bNoSQL\b/gi, 'No S Q L')
+      .replace(/\bSOS\b/g, 'S O S')
+      .replace(/\bPDF\b/gi, 'P D F')
+      .replace(/\bAPI\b/gi, 'A P I')
+      .replace(/\bREST\b/gi, 'Rest')
+      .replace(/\bWi-?Fi\b/gi, 'Wi-Fi')
+      .replace(/\bID\b/g, 'I D')
+      .replace(/O\(\s*1\s*\)/gi, 'Order 1')
+      .replace(/O\(\s*n\s*\)/gi, 'Order n')
+      .replace(/O\(\s*log\s*n\s*\)/gi, 'Order log n')
+      .replace(/O\(\s*n\s*log\s*n\s*\)/gi, 'Order n log n')
+      .replace(/O\(\s*n\^2\s*\)/gi, 'Order n squared')
       .replace(/\s+/g, ' ')
       .trim()
+  }
 
-    if (!cleanSpeech) return
+  // Ultra-fast sentence-chunked speech playback
+  const speakText = (text) => {
+    if (!voiceEnabled || !window.speechSynthesis) return
+    stopSpeaking()
 
-    const utterance = new SpeechSynthesisUtterance(cleanSpeech)
-    const voice = getNaturalVoice()
+    const clean = sanitizeForSpeech(text)
+    if (!clean) return
+
+    // Split into sentences for immediate playback of the first sentence
+    const sentences = clean.match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g) || [clean]
+    speechQueue = sentences.map(s => s.trim()).filter(Boolean)
+    if (!speechQueue.length) return
+
+    // Chromium speech delay workaround: schedule playback in a microtask
+    speechTimeout = setTimeout(() => {
+      playNextSentence()
+    }, 25)
+  }
+
+  const playNextSentence = () => {
+    if (!speechQueue.length) {
+      isSpeaking = false
+      if (speakingWave) speakingWave.classList.add('hidden')
+      voiceToggleBtn.innerHTML = voiceEnabled ? '<i class="fa-solid fa-volume-high text-sm"></i>' : '<i class="fa-solid fa-volume-xmark text-sm text-white/50"></i>'
+      return
+    }
+
+    const sentence = speechQueue.shift()
+    const utterance = new SpeechSynthesisUtterance(sentence)
+    const voice = cachedVoice || loadNaturalVoice()
     if (voice) utterance.voice = voice
-    utterance.rate = 1.0
+    utterance.rate = 1.05 // Confident, crisp speed
     utterance.pitch = 1.02
 
     utterance.onstart = () => {
       isSpeaking = true
+      if (speakingWave) speakingWave.classList.remove('hidden')
       voiceToggleBtn.innerHTML = '<i class="fa-solid fa-volume-high text-sm text-emerald-300 animate-pulse"></i>'
     }
-    utterance.onend = utterance.onerror = () => {
+
+    utterance.onend = () => {
+      if (speechQueue.length) {
+        playNextSentence()
+      } else {
+        isSpeaking = false
+        if (speakingWave) speakingWave.classList.add('hidden')
+        voiceToggleBtn.innerHTML = voiceEnabled ? '<i class="fa-solid fa-volume-high text-sm"></i>' : '<i class="fa-solid fa-volume-xmark text-sm text-white/50"></i>'
+      }
+    }
+
+    utterance.onerror = () => {
       isSpeaking = false
+      if (speakingWave) speakingWave.classList.add('hidden')
       voiceToggleBtn.innerHTML = voiceEnabled ? '<i class="fa-solid fa-volume-high text-sm"></i>' : '<i class="fa-solid fa-volume-xmark text-sm text-white/50"></i>'
     }
 
@@ -1694,28 +1790,30 @@ function injectAIAssistant() {
 
   // Voice Toggle Button
   voiceToggleBtn.onclick = () => {
-    if (isSpeaking) {
-      window.speechSynthesis.cancel()
-      isSpeaking = false
-    }
+    if (isSpeaking) stopSpeaking()
     voiceEnabled = !voiceEnabled
     voiceToggleBtn.innerHTML = voiceEnabled ? '<i class="fa-solid fa-volume-high text-sm"></i>' : '<i class="fa-solid fa-volume-xmark text-sm text-white/50"></i>'
-    voiceStatus.innerHTML = voiceEnabled ? '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Voice Enabled' : '<span class="w-2 h-2 rounded-full bg-slate-400"></span> Voice Muted'
+    voiceStatus.innerHTML = voiceEnabled ? '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Fast Voice Enabled' : '<span class="w-2 h-2 rounded-full bg-slate-400"></span> Voice Muted'
     toast(voiceEnabled ? 'Voice playback enabled' : 'Voice playback muted', 'info')
+  }
+
+  // Click speaking wave to stop speaking
+  if (speakingWave) {
+    speakingWave.onclick = () => stopSpeaking()
   }
 
   const toggle = () => {
     panel.classList.toggle('hidden')
     if (!panel.classList.contains('hidden')) {
       input.focus()
-    } else if (window.speechSynthesis) {
-      window.speechSynthesis.cancel()
+    } else {
+      stopSpeaking()
     }
   }
   document.getElementById('ai-toggle').onclick = toggle
   document.getElementById('ai-close').onclick = () => {
     panel.classList.add('hidden')
-    if (window.speechSynthesis) window.speechSynthesis.cancel()
+    stopSpeaking()
   }
 
   const formatAIMessage = (text) => {
@@ -1788,29 +1886,87 @@ function injectAIAssistant() {
     }
   })
   
-  // Speech Recognition (Mic)
+  // High-Responsiveness Speech Recognition (Fast interim results & silence detection)
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition
   if (SR) {
     let rec = new SR()
     rec.lang = 'en-US'
-    rec.interimResults = false
+    rec.interimResults = true
     rec.continuous = false
+    let isListening = false
+    let silenceTimer = null
+    let latestTranscript = ''
+
+    const stopListening = () => {
+      if (!isListening) return
+      isListening = false
+      if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null }
+      try { rec.stop() } catch (e) {}
+      voiceBtn.classList.remove('!bg-red-500', '!text-white')
+      if (micPulse) micPulse.classList.add('hidden')
+      input.placeholder = 'Ask a question or tap mic to speak...'
+    }
 
     voiceBtn.onclick = () => {
+      if (isListening) {
+        // Tap mic again to immediately submit what was heard
+        stopListening()
+        if (latestTranscript.trim()) {
+          sendQuery(latestTranscript.trim())
+          latestTranscript = ''
+        }
+        return
+      }
+
       try {
-        voiceBtn.classList.add('!bg-red-500', '!text-white', 'animate-pulse')
+        stopSpeaking()
+        latestTranscript = ''
+        isListening = true
+        voiceBtn.classList.add('!bg-red-500', '!text-white')
+        if (micPulse) micPulse.classList.remove('hidden')
         input.placeholder = 'Listening... Speak now'
         rec.start()
-      } catch (e) {}
+      } catch (e) {
+        stopListening()
+      }
     }
+
     rec.onresult = (ev) => {
-      const transcript = ev.results[0][0].transcript
-      input.value = transcript
-      sendQuery(transcript)
+      let interim = ''
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const text = ev.results[i][0].transcript
+        if (ev.results[i].isFinal) {
+          latestTranscript = text
+        } else {
+          interim += text
+        }
+      }
+
+      const activeText = (latestTranscript || interim).trim()
+      if (activeText) {
+        input.value = activeText
+        // Fast 750ms silence auto-submit
+        if (silenceTimer) clearTimeout(silenceTimer)
+        silenceTimer = setTimeout(() => {
+          stopListening()
+          if (activeText) {
+            sendQuery(activeText)
+            latestTranscript = ''
+          }
+        }, 750)
+      }
     }
-    rec.onerror = rec.onend = () => {
-      voiceBtn.classList.remove('!bg-red-500', '!text-white', 'animate-pulse')
-      input.placeholder = 'Type a question or click mic...'
+
+    rec.onend = () => {
+      stopListening()
+      if (latestTranscript.trim()) {
+        sendQuery(latestTranscript.trim())
+        latestTranscript = ''
+      }
+    }
+
+    rec.onerror = () => {
+      stopListening()
     }
   } else {
     voiceBtn.title = 'Speech recognition not supported in this browser'
