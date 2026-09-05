@@ -1573,34 +1573,64 @@ window.openAddEventModal = function() {
 /* ================================================================ AI VOICE ASSISTANT */
 function injectAIAssistant() {
   if (document.getElementById('ai-widget')) return
+  let voiceEnabled = true
+  let isSpeaking = false
+
   const html = `
   <div id="ai-widget" class="fixed bottom-6 right-6 z-50">
     <!-- Chat Panel -->
-    <div id="ai-panel" class="hidden absolute bottom-20 right-0 w-[360px] h-[500px] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden transition-all origin-bottom-right pop-in">
-      <div class="hero-gradient text-white p-4 flex items-center justify-between">
+    <div id="ai-panel" class="hidden absolute bottom-20 right-0 w-[380px] max-w-[92vw] h-[520px] max-h-[80vh] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden transition-all origin-bottom-right pop-in">
+      <div class="hero-gradient text-white p-4 flex items-center justify-between shadow-sm">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-white/20 grid place-items-center text-xl"><i class="fa-solid fa-robot"></i></div>
-          <div><p class="font-extrabold leading-tight">Campus AI</p><p class="text-white/70 text-xs">Voice Assistant</p></div>
+          <div class="w-10 h-10 rounded-2xl bg-white/20 grid place-items-center text-xl shadow-inner"><i class="fa-solid fa-robot"></i></div>
+          <div>
+            <p class="font-extrabold leading-tight text-base">Campus AI</p>
+            <p id="ai-voice-status" class="text-white/80 text-xs flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Voice Enabled</p>
+          </div>
         </div>
-        <button id="ai-close" class="w-8 h-8 rounded-full hover:bg-white/20 grid place-items-center"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div id="ai-messages" class="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50 text-sm">
-        <div class="flex items-start gap-2 max-w-[85%]">
-          <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 grid place-items-center flex-shrink-0"><i class="fa-solid fa-robot text-xs"></i></div>
-          <div class="bg-white border border-slate-200 p-3 rounded-2xl rounded-tl-sm shadow-sm text-slate-700">Hi! Ask me about your attendance, assignments, marks, or classes.</div>
+        <div class="flex items-center gap-1.5">
+          <button id="ai-voice-toggle" class="w-8 h-8 rounded-full hover:bg-white/20 grid place-items-center text-white/90 hover:text-white transition" title="Toggle Voice Output">
+            <i class="fa-solid fa-volume-high text-sm"></i>
+          </button>
+          <button id="ai-close" class="w-8 h-8 rounded-full hover:bg-white/20 grid place-items-center text-white/90 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
+
+      <!-- Quick Suggestion Chips -->
+      <div class="bg-slate-100/90 px-3 py-2 flex items-center gap-1.5 overflow-x-auto text-[11px] font-semibold text-slate-600 border-b border-slate-200 scrollbar-none">
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 transition" data-q="What is my attendance?">📊 Attendance</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 transition" data-q="How many assignments are pending?">📝 Assignments</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 transition" data-q="Show my marks and CGPA">📈 My Grades</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 transition" data-q="Explain database normalization">💡 Normalization</button>
+        <button class="ai-chip whitespace-nowrap bg-white hover:bg-indigo-50 hover:text-indigo-600 px-2.5 py-1 rounded-full border border-slate-200 transition" data-q="What is on my schedule today?">📅 Schedule</button>
+      </div>
+
+      <!-- Messages Area -->
+      <div id="ai-messages" class="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50 text-sm">
+        <div class="flex items-start gap-2.5 max-w-[88%]">
+          <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 grid place-items-center flex-shrink-0 shadow-sm"><i class="fa-solid fa-robot text-xs"></i></div>
+          <div class="bg-white border border-slate-200 p-3.5 rounded-2xl rounded-tl-sm shadow-sm text-slate-700 leading-relaxed text-xs">
+            Hi! I am your Smart Campus AI Assistant. You can speak using the microphone or ask me about your <b>attendance</b>, <b>assignments</b>, <b>marks & CGPA</b>, or ask me to <b>explain any academic topic</b>!
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Bar -->
       <div class="p-3 border-t border-slate-200 bg-white flex items-center gap-2">
-        <button id="ai-voice-btn" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-indigo-100 hover:text-indigo-600 grid place-items-center transition flex-shrink-0 text-slate-500"><i class="fa-solid fa-microphone"></i></button>
-        <input type="text" id="ai-input" class="flex-1 bg-slate-100 rounded-full px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition" placeholder="Type or speak...">
-        <button id="ai-send" class="w-10 h-10 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 grid place-items-center transition flex-shrink-0"><i class="fa-solid fa-paper-plane text-xs"></i></button>
+        <button id="ai-voice-btn" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-indigo-100 hover:text-indigo-600 grid place-items-center transition flex-shrink-0 text-slate-600" title="Click to speak">
+          <i class="fa-solid fa-microphone"></i>
+        </button>
+        <input type="text" id="ai-input" class="flex-1 bg-slate-100 rounded-full px-4 py-2.5 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition" placeholder="Type a question or click mic...">
+        <button id="ai-send" class="w-10 h-10 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 grid place-items-center transition flex-shrink-0 shadow-md">
+          <i class="fa-solid fa-paper-plane text-xs"></i>
+        </button>
       </div>
     </div>
     
-    <!-- FAB Toggle -->
-    <button id="ai-toggle" class="w-16 h-16 rounded-full hero-gradient text-white shadow-xl hover:scale-110 transition-transform grid place-items-center text-2xl relative">
+    <!-- Floating Action Button (FAB) -->
+    <button id="ai-toggle" class="w-16 h-16 rounded-full hero-gradient text-white shadow-2xl hover:scale-110 transition-transform grid place-items-center text-2xl relative" title="Campus AI Voice Assistant">
       <i class="fa-solid fa-robot"></i>
-      <div class="absolute inset-0 rounded-full border border-white/40 animate-ping"></div>
+      <div class="absolute inset-0 rounded-full border-2 border-white/40 animate-ping pointer-events-none"></div>
     </button>
   </div>`
   document.body.insertAdjacentHTML('beforeend', html)
@@ -1609,50 +1639,182 @@ function injectAIAssistant() {
   const input = document.getElementById('ai-input')
   const messages = document.getElementById('ai-messages')
   const voiceBtn = document.getElementById('ai-voice-btn')
-  
-  const toggle = () => panel.classList.toggle('hidden')
+  const voiceToggleBtn = document.getElementById('ai-voice-toggle')
+  const voiceStatus = document.getElementById('ai-voice-status')
+
+  // Natural TTS Voice Selector
+  const getNaturalVoice = () => {
+    if (!window.speechSynthesis) return null
+    const voices = window.speechSynthesis.getVoices()
+    if (!voices.length) return null
+    // Prefer modern natural English voices
+    const preferred = voices.find(v => (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Online')) && v.lang.startsWith('en'))
+      || voices.find(v => (v.name.includes('Samantha') || v.name.includes('Zira') || v.name.includes('Jenny') || v.name.includes('David')) && v.lang.startsWith('en'))
+      || voices.find(v => v.lang.startsWith('en-US'))
+      || voices.find(v => v.lang.startsWith('en'))
+    return preferred || voices[0]
+  }
+
+  // Pre-load voices
+  if (window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => getNaturalVoice()
+  }
+
+  // Speech function with natural cadence and cancellation
+  const speakText = (text) => {
+    if (!voiceEnabled || !window.speechSynthesis) return
+    window.speechSynthesis.cancel()
+    
+    // Clean text for speech: remove markdown bullets, emojis, and special chars
+    const cleanSpeech = text
+      .replace(/[•\*\#\_]/g, '')
+      .replace(/https?:\/\/\S+/g, 'link')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    if (!cleanSpeech) return
+
+    const utterance = new SpeechSynthesisUtterance(cleanSpeech)
+    const voice = getNaturalVoice()
+    if (voice) utterance.voice = voice
+    utterance.rate = 1.0
+    utterance.pitch = 1.02
+
+    utterance.onstart = () => {
+      isSpeaking = true
+      voiceToggleBtn.innerHTML = '<i class="fa-solid fa-volume-high text-sm text-emerald-300 animate-pulse"></i>'
+    }
+    utterance.onend = utterance.onerror = () => {
+      isSpeaking = false
+      voiceToggleBtn.innerHTML = voiceEnabled ? '<i class="fa-solid fa-volume-high text-sm"></i>' : '<i class="fa-solid fa-volume-xmark text-sm text-white/50"></i>'
+    }
+
+    window.speechSynthesis.speak(utterance)
+  }
+
+  // Voice Toggle Button
+  voiceToggleBtn.onclick = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel()
+      isSpeaking = false
+    }
+    voiceEnabled = !voiceEnabled
+    voiceToggleBtn.innerHTML = voiceEnabled ? '<i class="fa-solid fa-volume-high text-sm"></i>' : '<i class="fa-solid fa-volume-xmark text-sm text-white/50"></i>'
+    voiceStatus.innerHTML = voiceEnabled ? '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Voice Enabled' : '<span class="w-2 h-2 rounded-full bg-slate-400"></span> Voice Muted'
+    toast(voiceEnabled ? 'Voice playback enabled' : 'Voice playback muted', 'info')
+  }
+
+  const toggle = () => {
+    panel.classList.toggle('hidden')
+    if (!panel.classList.contains('hidden')) {
+      input.focus()
+    } else if (window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+    }
+  }
   document.getElementById('ai-toggle').onclick = toggle
-  document.getElementById('ai-close').onclick = () => panel.classList.add('hidden')
+  document.getElementById('ai-close').onclick = () => {
+    panel.classList.add('hidden')
+    if (window.speechSynthesis) window.speechSynthesis.cancel()
+  }
+
+  const formatAIMessage = (text) => {
+    return text
+      .split('\n')
+      .map(line => {
+        const trimmed = line.trim()
+        if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
+          return `<div class="flex items-start gap-1.5 my-1"><span class="text-indigo-500 font-bold">•</span><span>${esc(trimmed.substring(1).trim())}</span></div>`
+        }
+        return `<div>${esc(line)}</div>`
+      })
+      .join('')
+  }
   
   const addMsg = (text, isUser = false) => {
+    const formatted = isUser ? esc(text) : formatAIMessage(text)
     messages.insertAdjacentHTML('beforeend', `
-      <div class="flex items-start gap-2 max-w-[85%] ${isUser ? 'ml-auto flex-row-reverse' : ''}">
-        ${isUser ? '' : `<div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 grid place-items-center flex-shrink-0"><i class="fa-solid fa-robot text-xs"></i></div>`}
-        <div class="${isUser ? 'bg-indigo-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm'} p-3 rounded-2xl shadow-sm">${esc(text)}</div>
+      <div class="flex items-start gap-2.5 max-w-[88%] ${isUser ? 'ml-auto flex-row-reverse' : ''}">
+        ${isUser ? '' : `<div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 grid place-items-center flex-shrink-0 shadow-sm"><i class="fa-solid fa-robot text-xs"></i></div>`}
+        <div class="${isUser ? 'bg-indigo-600 text-white rounded-tr-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'} p-3.5 rounded-2xl shadow-sm text-xs leading-relaxed">
+          ${formatted}
+        </div>
       </div>`)
     messages.scrollTop = messages.scrollHeight
   }
 
+  const showTypingIndicator = () => {
+    messages.insertAdjacentHTML('beforeend', `
+      <div id="ai-typing" class="flex items-center gap-2 max-w-[88%]">
+        <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 grid place-items-center flex-shrink-0"><i class="fa-solid fa-robot text-xs"></i></div>
+        <div class="bg-white border border-slate-200 px-4 py-2.5 rounded-2xl rounded-tl-sm text-slate-400 text-xs flex items-center gap-1.5">
+          <i class="fa-solid fa-spinner spin text-indigo-500"></i> Thinking...
+        </div>
+      </div>`)
+    messages.scrollTop = messages.scrollHeight
+  }
+
+  const removeTypingIndicator = () => {
+    const el = document.getElementById('ai-typing')
+    if (el) el.remove()
+  }
+
   const sendQuery = async (query) => {
-    if (!query.trim()) return
-    addMsg(query, true)
+    if (!query || !query.trim()) return
+    const q = query.trim()
+    addMsg(q, true)
     input.value = ''
+    showTypingIndicator()
+    
     try {
-      const res = await call('post', '/ai/chat', { message: query })
+      const res = await call('post', '/ai/chat', { message: q })
+      removeTypingIndicator()
       addMsg(res.response)
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel()
-        const utterance = new SpeechSynthesisUtterance(res.response)
-        utterance.rate = 1.1
-        window.speechSynthesis.speak(utterance)
-      }
+      speakText(res.response)
     } catch (e) {
-      addMsg("Sorry, I'm having trouble connecting right now.")
+      removeTypingIndicator()
+      addMsg("I'm having a little trouble connecting right now. Please try again!")
     }
   }
 
   document.getElementById('ai-send').onclick = () => sendQuery(input.value)
   input.onkeypress = (e) => { if (e.key === 'Enter') sendQuery(input.value) }
+
+  // Quick suggestion chips click handler
+  document.querySelectorAll('.ai-chip').forEach(btn => {
+    btn.onclick = () => {
+      const query = btn.getAttribute('data-q')
+      if (query) sendQuery(query)
+    }
+  })
   
+  // Speech Recognition (Mic)
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition
   if (SR) {
-    let rec = new SR(); rec.lang = 'en-US'; rec.interimResults = false; rec.continuous = false
+    let rec = new SR()
+    rec.lang = 'en-US'
+    rec.interimResults = false
+    rec.continuous = false
+
     voiceBtn.onclick = () => {
-      voiceBtn.classList.add('!bg-red-500', '!text-white', 'animate-pulse')
-      rec.start()
+      try {
+        voiceBtn.classList.add('!bg-red-500', '!text-white', 'animate-pulse')
+        input.placeholder = 'Listening... Speak now'
+        rec.start()
+      } catch (e) {}
     }
-    rec.onresult = (ev) => sendQuery(ev.results[0][0].transcript)
-    rec.onend = () => voiceBtn.classList.remove('!bg-red-500', '!text-white', 'animate-pulse')
+    rec.onresult = (ev) => {
+      const transcript = ev.results[0][0].transcript
+      input.value = transcript
+      sendQuery(transcript)
+    }
+    rec.onerror = rec.onend = () => {
+      voiceBtn.classList.remove('!bg-red-500', '!text-white', 'animate-pulse')
+      input.placeholder = 'Type a question or click mic...'
+    }
+  } else {
+    voiceBtn.title = 'Speech recognition not supported in this browser'
+    voiceBtn.classList.add('opacity-50')
   }
 }
 
