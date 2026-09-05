@@ -292,8 +292,10 @@ async function doLogin(email, password) {
   go('dashboard', { push: false })
   try { history.replaceState({ route: 'dashboard' }, '', '#dashboard') } catch (e) {}
   if (typeof injectAIAssistant === 'function') injectAIAssistant()
-  // Anime-girl greeting after login (user already interacted, so this is allowed).
-  playVoice(VOICE.loggedIn)
+  // Welcome voice for students only — disabled when signing into admin panel
+  if (res.user && res.user.role !== 'admin') {
+    playVoice(VOICE.loggedIn)
+  }
 }
 
 /* ================================================================ APP SHELL */
